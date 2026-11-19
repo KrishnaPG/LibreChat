@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createModels, createMethods, tenantStorage } from '@librechat/data-schemas';
+import { createModels, createMethods, runAsSystem, tenantStorage } from '@librechat/data-schemas';
 import type { IGroup } from '@librechat/data-schemas';
 import type { OpenIdGroupSyncMethods } from './openidGroupSync';
 import {
@@ -269,6 +269,34 @@ describe('createOpenIdGroupSync with MongoDB', () => {
 
     const group = await Group.findOne({ idOnTheSource: '/course-a' }).lean();
     expect(group?.tenantId).toBe('tenant-a');
+  });
+
+  it('runs in the user tenant under a system or another tenant context', async () => {
+    const sync = createSync();
+    const inA = { ...user, tenantId: 'tenant-a' };
+    await runAsTenant('tenant-b', () =>
+      sync({ ...user, tenantId: 'tenant-b' }, { accessToken: accessToken(['/course-a']) }),
+    );
+
+    await runAsSystem(() => sync(inA, { accessToken: accessToken(['/course-a']) }));
+    await runAsTenant('tenant-b', () => sync(inA, { accessToken: accessToken([]) }));
+
+    const groups = await Group.find({ idOnTheSource: '/course-a' }).lean();
+    expect(groups.map((g) => [g.tenantId, g.memberIds]).sort()).toEqual([
+      ['tenant-a', []],
+      ['tenant-b', ['kc-user-1']],
+    ]);
+  });
+
+  it('reads a URL-namespaced claim with bracket notation', async () => {
+    const sync = createSync({
+      ...ENABLED_ENV,
+      OPENID_GROUPS_CLAIM_PATH: '["https://example.com/groups"]',
+    });
+
+    await sync(user, { accessToken: token({ 'https://example.com/groups': ['course-a'] }) });
+
+    expect(await membersOf({ source: OPENID_GROUP_SOURCE })).toEqual({ 'course-a': ['kc-user-1'] });
   });
 
   it('treats a concurrent first creation of the same group as success', async () => {
