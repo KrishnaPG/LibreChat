@@ -1,4 +1,4 @@
-import { logger, getTenantId, tenantStorage } from '@librechat/data-schemas';
+import { logger, tenantStorage } from '@librechat/data-schemas';
 import type { OpenIdRoleSyncClaimSource } from './openidRoleSync';
 import { getOpenIdRolesForOpenIdSync } from './openidRoleSync';
 import { isEnabled } from '~/utils';
@@ -252,14 +252,14 @@ export function createOpenIdGroupSync({
         return;
       }
 
+      /**
+       * Always run in the user's own tenant (or none), whatever context is ambient: the OAuth
+       * callback runs before the tenant middleware, and a system or other-tenant context would
+       * otherwise create groups outside the user's tenant or remove memberships across tenants.
+       */
       const tenantId = user.tenantId ? String(user.tenantId) : undefined;
-      if (!tenantId || getTenantId() != null) {
-        return await syncWithOptions(user, tokens, options);
-      }
-      /** The OAuth callback runs before the tenant middleware; scope the sync to the user's tenant. */
-      return await tenantStorage.run({ tenantId, userId: String(user._id) }, async () =>
-        syncWithOptions(user, tokens, options),
-      );
+      const store = { ...tenantStorage.getStore(), tenantId, userId: String(user._id) };
+      return await tenantStorage.run(store, async () => syncWithOptions(user, tokens, options));
     } catch (error) {
       logger.error('[openidGroupSync] Error syncing OpenID groups:', error);
       return;
