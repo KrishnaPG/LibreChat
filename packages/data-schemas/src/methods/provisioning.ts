@@ -4,7 +4,7 @@ import { runAfterTransaction } from '~/utils/postCommit';
 
 export interface PermissionPrincipalRecord {
   id: string;
-  source?: 'local' | 'entra';
+  source?: 'local' | 'entra' | 'oidc';
   idOnTheSource?: string;
   email?: string;
   description?: string;
@@ -13,7 +13,7 @@ export interface PermissionPrincipalRecord {
 export interface PermissionPrincipalData {
   name?: string;
   email?: string;
-  source?: 'local' | 'entra';
+  source?: 'local' | 'entra' | 'oidc';
   idOnTheSource?: string;
   description?: string;
   memberIds?: string[];
@@ -31,7 +31,7 @@ export interface PermissionPrincipalQuery {
   id?: string;
   email?: string;
   idOnTheSource?: string;
-  source?: 'local' | 'entra';
+  source?: 'local' | 'entra' | 'oidc';
 }
 
 export interface PermissionPrincipalStorage {

@@ -12,6 +12,7 @@ const {
 } = require('@librechat/api');
 const { resizeAvatar } = require('~/server/services/Files/images/avatar');
 const { getAppConfig } = require('~/server/services/Config');
+const { syncUserOpenIdGroups } = require('~/server/services/OpenIdGroupSync');
 const { setupOpenId } = require('./openidStrategy');
 
 const mockCloudfrontFileSource = FileSources.cloudfront ?? 'cloudfront';
@@ -32,6 +33,9 @@ jest.mock('~/server/services/Files/images/avatar', () => ({
 }));
 jest.mock('~/server/services/Config', () => ({
   getAppConfig: jest.fn().mockResolvedValue({}),
+}));
+jest.mock('~/server/services/OpenIdGroupSync', () => ({
+  syncUserOpenIdGroups: jest.fn(),
 }));
 jest.mock('@librechat/api', () => {
   const actual = jest.requireActual('@librechat/api');
@@ -408,6 +412,18 @@ describe('setupOpenId', () => {
       const params = getLoginStrategy().authorizationRequestParams({}, {});
 
       expect(params.has('audience')).toBe(false);
+    });
+  });
+
+  it('syncs OpenID groups from the login tokens, claims and userinfo', async () => {
+    const { user } = await validate(tokenset);
+
+    expect(syncUserOpenIdGroups).toHaveBeenCalledTimes(1);
+    expect(syncUserOpenIdGroups).toHaveBeenCalledWith(expect.objectContaining({ _id: user._id }), {
+      accessToken: 'fake_access_token',
+      idToken: 'fake_id_token',
+      claims: tokenset.claims(),
+      userinfo: expect.objectContaining({ sub: '1234' }),
     });
   });
 

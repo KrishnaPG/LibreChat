@@ -48,6 +48,7 @@ const {
   refreshOpenIDUser,
   sendOpenIDAuthResponse,
 } = require('~/server/services/OpenIDRefreshRecovery');
+const { syncUserOpenIdGroups } = require('~/server/services/OpenIdGroupSync');
 const OpenIDRefreshFlight = require('~/server/services/OpenIDRefreshFlight');
 
 const AUTH_REFRESH_USER_PROJECTION = '-password -__v -totpSecret -backupCodes -federatedTokens';
@@ -363,6 +364,12 @@ const refreshController = async (req, res) => {
           clearSessionHintCookie(res);
           return res.status(401).redirect('/login');
         }
+
+        /** A refresh has no userinfo, and identity claims fall back to the login's; read the fresh tokens only. */
+        await syncUserOpenIdGroups(user, {
+          accessToken: tokenset.access_token,
+          idToken: tokenset.id_token,
+        });
 
         // Handle migration: update user with openidId if found by email without openidId
         // Also handle case where user has mismatched openidId (e.g., after database switch)

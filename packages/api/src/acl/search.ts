@@ -285,7 +285,7 @@ export function createPrincipalSearch(deps: PrincipalSearchDeps): PrincipalSearc
         _searchScore: deps.calculateRelevanceScore(item, query),
       }));
 
-      const sources = { local: 0, entra: 0 };
+      const sources = { local: 0, entra: 0, oidc: 0 };
       const results = deps
         .sortPrincipalsByRelevance(scoredResults)
         .slice(0, searchLimit)
