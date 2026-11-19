@@ -1,6 +1,8 @@
 const path = require('path');
 const mongoose = require('mongoose');
-const { User } = require('@librechat/data-schemas').createModels(mongoose);
+const crypto = require('crypto');
+const { createModels, tenantStorage } = require('@librechat/data-schemas');
+const { User } = createModels(mongoose);
 require('module-alias')({ base: path.resolve(__dirname, '..', 'api') });
 const { registerUser } = require('~/server/services/AuthService');
 const { askQuestion, silentExit } = require('./helpers');
@@ -24,7 +26,7 @@ const connect = require('./connect');
   }
 
   // Parse command line arguments
-  let email, password, name, username, emailVerified, provider;
+  let email, password, name, username, emailVerified, provider, tenantId;
   for (let i = 2; i < process.argv.length; i++) {
     if (process.argv[i].startsWith('--email-verified=')) {
       emailVerified = process.argv[i].split('=')[1].toLowerCase() !== 'false';
@@ -33,6 +35,15 @@ const connect = require('./connect');
 
     if (process.argv[i].startsWith('--provider=')) {
       provider = process.argv[i].split('=')[1];
+      continue;
+    }
+
+    if (process.argv[i].startsWith('--tenant=')) {
+      tenantId = process.argv[i].slice('--tenant='.length).trim();
+      if (!tenantId) {
+        console.red('Error: --tenant needs a tenant id.');
+        silentExit(1);
+      }
       continue;
     }
 
@@ -69,6 +80,10 @@ const connect = require('./connect');
       username = defaultName;
     }
   }
+  // An account of another provider (e.g. openid) signs in there: it gets an unusable random password and no prompt.
+  if (password === undefined && provider !== undefined && provider !== 'local') {
+    password = crypto.randomBytes(24).toString('base64url');
+  }
   if (password === undefined) {
     password = await askQuestion('Password: (leave blank, to generate one)');
     if (!password) {
@@ -97,8 +112,20 @@ or the user will need to attempt logging in to have a verification link sent to 
     }
   }
 
+  // Inside a tenant context, lookups are scoped to the tenant and the new user is stamped with it,
+  // so the account can be bound where a tenant is required (Agent Management API clients).
+  const inTenant = (fn) => (tenantId ? tenantStorage.run({ tenantId }, fn) : fn());
+  await inTenant(() => createAccount({ email, password, name, username, emailVerified, provider }));
+})();
+
+async function createAccount({ email, password, name, username, emailVerified, provider }) {
   const userExists = await User.findOne({ $or: [{ email }, { username }] });
   if (userExists) {
+    // Re-running the same provisioning is a success, so a declarative Job can run it again.
+    if (userExists.email === email && userExists.username === username && (userExists.provider ?? 'local') === (provider ?? 'local')) {
+      console.green('User already exists.');
+      silentExit(0);
+    }
     console.red('Error: A user with that email or username already exists!');
     silentExit(1);
   }
@@ -124,7 +151,7 @@ or the user will need to attempt logging in to have a verification link sent to 
     console.green(`Email verified: ${userCreated.emailVerified}`);
     silentExit(0);
   }
-})();
+}
 
 process.on('uncaughtException', (err) => {
   if (!err.message.includes('fetch failed')) {
