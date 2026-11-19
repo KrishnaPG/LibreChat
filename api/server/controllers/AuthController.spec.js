@@ -73,6 +73,9 @@ jest.mock('~/server/services/OpenIDRefreshFlight', () => ({
 jest.mock('~/server/services/OpenIDSessionRefresh', () => ({
   refreshOpenIDSession: jest.fn(),
 }));
+jest.mock('~/server/services/OpenIdGroupSync', () => ({
+  syncUserOpenIdGroups: jest.fn(),
+}));
 jest.mock('@librechat/api', () => ({
   ...jest.requireActual('@librechat/api'),
   OPENID_EXPIRY_BUFFER_SECONDS: 30,
@@ -190,6 +193,7 @@ const {
   withOpenIDRefreshFlightLease,
 } = require('~/server/services/OpenIDRefreshFlight');
 const { refreshOpenIDSession } = require('~/server/services/OpenIDSessionRefresh');
+const { syncUserOpenIdGroups } = require('~/server/services/OpenIdGroupSync');
 const { revokeOpenIDRefreshTokenChain } = require('~/server/services/OpenIDRefreshRecovery');
 
 const ORIGINAL_OPENID_SCOPE = process.env.OPENID_SCOPE;
@@ -954,6 +958,17 @@ describe('refreshController – OpenID path', () => {
         email: baseClaims.email,
         openidIssuer: baseClaims.iss,
       }),
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('re-syncs OpenID groups from the refreshed tokens only', async () => {
+    await refreshController(req, res);
+
+    expect(syncUserOpenIdGroups).toHaveBeenCalledTimes(1);
+    expect(syncUserOpenIdGroups).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: 'user-db-id' }),
+      { accessToken: 'new-access', idToken: 'new-id' },
     );
     expect(res.status).toHaveBeenCalledWith(200);
   });

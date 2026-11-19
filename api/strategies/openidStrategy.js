@@ -41,6 +41,7 @@ const {
   recordAuditEntry,
   createUserIfAbsent,
 } = require('~/models');
+const { syncUserOpenIdGroups } = require('~/server/services/OpenIdGroupSync');
 const { getAppConfig } = require('~/server/services/Config');
 const getLogStores = require('~/cache/getLogStores');
 
@@ -874,6 +875,12 @@ async function processOpenIDAuth(tokenset, existingUsersOnly = false) {
     role: user.role,
     source: 'openid_login',
     tenantId: user.tenantId,
+  });
+  await syncUserOpenIdGroups(user, {
+    accessToken: tokenset.access_token,
+    idToken: tokenset.id_token,
+    claims,
+    userinfo,
   });
 
   logger.info(`[openidStrategy] login success for user: ${user._id}`);

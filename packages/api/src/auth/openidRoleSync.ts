@@ -28,7 +28,7 @@ export type OpenIdRoleSyncSelectionResult = {
 };
 
 type OpenIdRolesForOpenIdSyncInput = {
-  options: OpenIdRoleSyncOptions;
+  options: Pick<OpenIdRoleSyncOptions, 'claimSource' | 'claim'>;
   accessToken?: string;
   accessClaims?: unknown;
   idToken?: string;

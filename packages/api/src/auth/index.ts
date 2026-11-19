@@ -18,6 +18,7 @@ export * from './verification';
 export * from './invite';
 export * from './codeapi';
 export * from './openidRoleSync';
+export * from './openidGroupSync';
 export * from './userDocCache';
 export * from './jwt';
 export * from './email';

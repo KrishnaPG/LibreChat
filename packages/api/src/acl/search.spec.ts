@@ -399,7 +399,7 @@ describe('createPrincipalSearch', () => {
         principal({ name: 'Alice', email: 'alice@example.test' }),
       ],
       count: 3,
-      sources: { local: 2, entra: 1 },
+      sources: { local: 2, entra: 1, oidc: 0 },
     });
   });
 
@@ -416,7 +416,7 @@ describe('createPrincipalSearch', () => {
     );
     expect(test.res.status).toHaveBeenCalledWith(200);
     expect(test.res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ results: [local], sources: { local: 1, entra: 0 } }),
+      expect.objectContaining({ results: [local], sources: { local: 1, entra: 0, oidc: 0 } }),
     );
     warnSpy.mockRestore();
   });
